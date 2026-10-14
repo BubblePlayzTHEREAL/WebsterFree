@@ -1,23 +1,23 @@
-# Webster Free
+# Lexica
 
-A clean, ad-free, Merriam-Webster-style dictionary web app. No ads, no banners, no popups, no tracking.
+**The Ad-Free Dictionary.**
 
-Look up any English word and get real dictionary data — definitions, IPA pronunciations (with real audio), etymology, synonyms, antonyms, and a daily featured word — all in a clean, distraction-free UI.
+A clean, ad-free English dictionary web app. No ads, no banners, no popups, no tracking. Look up any English word and get real definitions, IPA pronunciations (with real audio), etymology, synonyms, antonyms, and a daily featured word — all in a distraction-free reader.
 
 ## Source priority chain
 
 Every lookup tries three sources in order, with full transparency about which one supplied the data:
 
-1. **Merriam-Webster Collegiate Dictionary + Thesaurus API** (primary) — real definitions, real audio pronunciations, real per-sense synonyms/antonyms. Marked in the UI with a green *"Source: Merriam-Webster"* badge.
-2. **English Wiktionary** (fallback) — for words MW doesn't cover. Uses the official Wikimedia Action API (no auth, no rate limit, freely licensed CC BY-SA). Marked with a green *"Source: Wiktionary"* badge.
-3. **AI fallback** (last resort) — only when both upstream APIs are unreachable due to network errors. Never used for genuinely missing words, so the app never silently hallucinates a definition for a misspelled word. Marked with a neutral *"Source: AI fallback"* badge.
+1. **Merriam-Webster Collegiate Dictionary + Thesaurus API** (primary) — real definitions, real audio pronunciations, real per-sense synonyms/antonyms. Surfaced in the UI with a green *"Source: Merriam-Webster"* badge.
+2. **English Wiktionary** (fallback) — for words the primary source doesn't cover. Uses the official Wikimedia Action API (no auth, no rate limit, freely licensed CC BY-SA). Surfaced with a green *"Source: Wiktionary"* badge.
+3. **AI fallback** (last resort) — only when both upstream APIs are unreachable due to network errors. Never used for genuinely missing words, so the app never silently hallucinates a definition for a misspelled word. Surfaced with a neutral *"Source: AI fallback"* badge.
 
 ## Features
 
 - **Hero search bar** with Enter-to-search and a pill "Look Up" button
 - **Word of the Day** card — deterministically rotated by day-of-year, cached 24h in localStorage
 - **Full dictionary entry view** with:
-  - Title-case word + IPA phonetic + clickable speaker button (real MW or Wikimedia Commons audio)
+  - Title-case word + IPA phonetic + clickable speaker button (real audio from the source)
   - Part-of-speech badge, origin badge, "First known use" badge
   - Numbered definitions, each with an example sentence
   - Etymology section
@@ -25,7 +25,7 @@ Every lookup tries three sources in order, with full transparency about which on
 - **Recent searches** strip persisted in localStorage (last 8, with clear button)
 - **Empty state** with 8 curated interesting starter words
 - **Loading skeletons** and **error states** with "Did you mean…?" suggestions for misspellings
-- **Sticky backdrop-blur header** with red Merriam-Webster-style brand mark
+- **Sticky backdrop-blur header** with the brand mark
 - **Sticky footer** with proper licensing attribution
 - **Framer Motion** page transitions
 - **Playfair Display** serif for headlines, Geist Sans for body
@@ -78,6 +78,16 @@ npm run dev
 
 Open <http://localhost:3000> in your browser.
 
+### 4. (Optional) Regenerate the favicon
+
+The favicon (red rounded square with a serif "L") is generated from a Python script:
+
+```bash
+python3 scripts/generate_favicon.py
+```
+
+This regenerates `public/favicon.ico` (multi-resolution), `public/favicon-{16,32,48,64,128,256}.png`, `public/apple-touch-icon.png` (180×180 for iOS), and `public/og-image.png` (1200×630 social preview card).
+
 ## Project structure
 
 ```
@@ -87,7 +97,7 @@ src/
 │   │   ├── dictionary/route.ts       # GET /api/dictionary?word=...
 │   │   └── word-of-the-day/route.ts  # GET /api/word-of-the-day
 │   ├── globals.css
-│   ├── layout.tsx                    # Root layout, fonts
+│   ├── layout.tsx                    # Root layout, fonts, metadata
 │   └── page.tsx                      # The whole dictionary UI
 ├── components/ui/                    # shadcn/ui component library
 ├── lib/

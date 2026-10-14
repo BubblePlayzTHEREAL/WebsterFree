@@ -292,7 +292,7 @@ export default function Home() {
               </span>
               <span className="flex flex-col leading-none">
                 <span className="font-serif text-xl tracking-tight text-[#1a1a1a]">
-                  Webster Free
+                  Lexica
                 </span>
                 <span className="text-[10px] uppercase tracking-[0.18em] text-stone-500">
                   Ad-Free Dictionary
@@ -326,9 +326,9 @@ export default function Home() {
             </h1>
             <p className="mt-4 text-stone-600 text-base sm:text-lg leading-relaxed">
               Look up any English word. Real definitions, IPA pronunciations,
-              etymology, synonyms, and antonyms from Merriam-Webster (with
-              Wiktionary fallback) — plus a daily featured word. No ads, no
-              banners, no interruptions.
+              etymology, synonyms, antonyms, and a daily featured word — all
+              in a clean, ad-free reader. No banners, no tracking, no
+              interruptions.
             </p>
           </div>
 
@@ -550,13 +550,12 @@ export default function Home() {
               <BookOpen className="h-3.5 w-3.5" />
             </span>
             <span>
-              <span className="font-serif text-stone-700">Webster Free</span> — an ad-free
-              reader for the Merriam-Webster Collegiate Dictionary and the
-              English Wiktionary.
+              <span className="font-serif text-stone-700">Lexica</span> — the
+              ad-free English dictionary.
             </span>
           </div>
           <span className="text-xs">
-            No ads. No tracking. No popups. MW data © Merriam-Webster Inc.; Wiktionary data © Wiktionary contributors (CC BY-SA).
+            No ads. No tracking. No popups. Dictionary data © Merriam-Webster Inc. and Wiktionary contributors (CC BY-SA).
           </span>
         </div>
       </footer>
@@ -960,9 +959,8 @@ function EmptyState({ onPick }: { onPick: (word: string) => void }) {
       </div>
       <h2 className="font-serif text-2xl text-stone-800">Try a word to begin</h2>
       <p className="mt-2 text-stone-600 max-w-md mx-auto">
-        Every lookup pulls real entries from the Merriam-Webster Collegiate
-        Dictionary (with Wiktionary as a fallback for words MW doesn't cover).
-        Pick one of these to start:
+        Every lookup pulls real entries from authoritative English
+        dictionaries. Pick one of these to start:
       </p>
       <div className="mt-6 flex flex-wrap gap-2 justify-center max-w-xl mx-auto">
         {suggestions.map((w) => (

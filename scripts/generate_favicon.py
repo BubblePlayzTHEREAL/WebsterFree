@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Generate the Webster Free favicon in multiple sizes and formats.
+"""Generate the Lexica favicon in multiple sizes and formats.
 
-Design: a red rounded square (#b32500) with a white serif "W" centered,
+Design: a red rounded square (#b32500) with a white serif "L" centered,
 matching the brand identity of the site.
 """
 
@@ -47,7 +47,7 @@ def render_icon(size: int) -> Image.Image:
     )
     img.paste(overlay, (0, big - shade_h), mask)
 
-    # Render the "W" glyph. Font size is ~62% of icon size.
+    # Render the "L" glyph. Font size is ~62% of icon size.
     font_size = int(big * 0.62)
     font = ImageFont.truetype(FONT_PATH, font_size)
 
@@ -58,11 +58,11 @@ def render_icon(size: int) -> Image.Image:
     # getbbox(), then translate it into the centered position.
     scratch = Image.new("RGBA", (big, big), (0, 0, 0, 0))
     sdraw = ImageDraw.Draw(scratch)
-    sdraw.text((0, 0), "W", font=font, fill=WHITE)
+    sdraw.text((0, 0), "L", font=font, fill=WHITE)
     ink_bbox = scratch.getbbox()
     if ink_bbox is None:
         # Empty glyph — fall back to textbbox
-        bbox = draw.textbbox((0, 0), "W", font=font)
+        bbox = draw.textbbox((0, 0), "L", font=font)
         ink_w = bbox[2] - bbox[0]
         ink_h = bbox[3] - bbox[1]
         ink_x = (big - ink_w) // 2 - bbox[0]
@@ -81,7 +81,7 @@ def render_icon(size: int) -> Image.Image:
     shadow_layer = Image.new("RGBA", (big, big), (0, 0, 0, 0))
     ImageDraw.Draw(shadow_layer).text(
         (ink_x, ink_y),
-        "W",
+        "L",
         font=font,
         fill=(0, 0, 0, 90),
     )
@@ -95,7 +95,7 @@ def render_icon(size: int) -> Image.Image:
     draw = ImageDraw.Draw(img)
 
     # Main glyph
-    draw.text((ink_x, ink_y), "W", font=font, fill=WHITE)
+    draw.text((ink_x, ink_y), "L", font=font, fill=WHITE)
 
     # Downsample to target size with high-quality LANCZOS filter.
     return img.resize((size, size), Image.LANCZOS)
@@ -132,13 +132,13 @@ def main():
     og = Image.new("RGB", (1200, 630), RED)
     draw = ImageDraw.Draw(og)
     font = ImageFont.truetype(FONT_PATH, 460)
-    bbox = draw.textbbox((0, 0), "W", font=font)
+    bbox = draw.textbbox((0, 0), "L", font=font)
     tw = bbox[2] - bbox[0]
     th = bbox[3] - bbox[1]
     tx = (1200 - tw) // 2 - bbox[0]
     ty = (630 - th) // 2 - bbox[1]
-    draw.text((tx + 4, ty + 4), "W", font=font, fill=(0, 0, 0))
-    draw.text((tx, ty), "W", font=font, fill=WHITE)
+    draw.text((tx + 4, ty + 4), "L", font=font, fill=(0, 0, 0))
+    draw.text((tx, ty), "L", font=font, fill=WHITE)
     og.save(OUT_DIR / "og-image.png")
     print("  + og-image.png (1200x630 social preview)")
 

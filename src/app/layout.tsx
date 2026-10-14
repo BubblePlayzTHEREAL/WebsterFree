@@ -20,9 +20,9 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Webster Free — Ad-Free Dictionary",
+  title: "Lexica — The Ad-Free Dictionary",
   description:
-    "A clean, ad-free, Merriam-Webster-style dictionary. Look up definitions, etymology, synonyms, antonyms, and more — no ads, no tracking, no clutter.",
+    "A clean, ad-free English dictionary. Look up definitions, IPA pronunciations, etymology, synonyms, antonyms, and a daily featured word — no ads, no tracking, no clutter.",
   keywords: [
     "dictionary",
     "ad-free",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     "synonyms",
     "word of the day",
   ],
-  authors: [{ name: "Webster Free" }],
+  authors: [{ name: "Lexica" }],
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -47,23 +47,23 @@ export const metadata: Metadata = {
     shortcut: ["/favicon.ico"],
   },
   openGraph: {
-    title: "Webster Free — Ad-Free Dictionary",
-    description: "A clean, ad-free Merriam-Webster-style dictionary.",
-    siteName: "Webster Free",
+    title: "Lexica — The Ad-Free Dictionary",
+    description: "A clean, ad-free English dictionary.",
+    siteName: "Lexica",
     type: "website",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Webster Free — Ad-Free Dictionary",
+        alt: "Lexica — The Ad-Free Dictionary",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Webster Free — Ad-Free Dictionary",
-    description: "A clean, ad-free Merriam-Webster-style dictionary.",
+    title: "Lexica — The Ad-Free Dictionary",
+    description: "A clean, ad-free English dictionary.",
     images: ["/og-image.png"],
   },
 };
