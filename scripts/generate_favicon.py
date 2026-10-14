@@ -5,7 +5,7 @@ Design: a red rounded square (#b32500) with a white serif "W" centered,
 matching the brand identity of the site.
 """
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from pathlib import Path
 
 # Brand colors
@@ -51,23 +51,51 @@ def render_icon(size: int) -> Image.Image:
     font_size = int(big * 0.62)
     font = ImageFont.truetype(FONT_PATH, font_size)
 
-    # Measure glyph bounds so we can center precisely.
-    bbox = draw.textbbox((0, 0), "W", font=font)
-    text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
-    text_x = (big - text_w) // 2 - bbox[0]
-    # Nudge down slightly so the cap-height looks visually centered.
-    text_y = (big - text_h) // 2 - bbox[1] + int(big * 0.02)
+    # ---- Tight ink-bounds centering ----
+    # The glyph's ink bounds != the font's reported bbox. To center the
+    # actual visible pixels (which is what the eye cares about), render the
+    # glyph onto a transparent scratch canvas, find its tight ink bbox via
+    # getbbox(), then translate it into the centered position.
+    scratch = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    sdraw = ImageDraw.Draw(scratch)
+    sdraw.text((0, 0), "W", font=font, fill=WHITE)
+    ink_bbox = scratch.getbbox()
+    if ink_bbox is None:
+        # Empty glyph — fall back to textbbox
+        bbox = draw.textbbox((0, 0), "W", font=font)
+        ink_w = bbox[2] - bbox[0]
+        ink_h = bbox[3] - bbox[1]
+        ink_x = (big - ink_w) // 2 - bbox[0]
+        ink_y = (big - ink_h) // 2 - bbox[1]
+    else:
+        ink_w = ink_bbox[2] - ink_bbox[0]
+        ink_h = ink_bbox[3] - ink_bbox[1]
+        # Position so that ink_bbox's top-left lands at the centered spot.
+        ink_x = (big - ink_w) // 2 - ink_bbox[0]
+        ink_y = (big - ink_h) // 2 - ink_bbox[1]
 
-    # Subtle drop shadow under the W for legibility at small sizes.
-    shadow_offset = max(1, int(big * 0.012))
-    draw.text(
-        (text_x + shadow_offset, text_y + shadow_offset),
+    # ---- Soft symmetric drop shadow ----
+    # A blurred shadow (no directional offset) reads as symmetric and adds
+    # legibility at tiny sizes without the "lopsided" feel of a down-right
+    # offset shadow.
+    shadow_layer = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow_layer).text(
+        (ink_x, ink_y),
         "W",
         font=font,
-        fill=(0, 0, 0, 70),
+        fill=(0, 0, 0, 90),
     )
-    draw.text((text_x, text_y), "W", font=font, fill=WHITE)
+    # Blur radius scales with icon size; 3% feels right at 256px and is
+    # still ~1px at 32px (below that the shadow is invisible anyway).
+    blur_radius = max(1, int(big * 0.018))
+    shadow_layer = shadow_layer.filter(
+        ImageFilter.GaussianBlur(radius=blur_radius)
+    )
+    img = Image.alpha_composite(img, shadow_layer)
+    draw = ImageDraw.Draw(img)
+
+    # Main glyph
+    draw.text((ink_x, ink_y), "W", font=font, fill=WHITE)
 
     # Downsample to target size with high-quality LANCZOS filter.
     return img.resize((size, size), Image.LANCZOS)
