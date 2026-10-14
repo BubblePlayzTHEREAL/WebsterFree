@@ -299,18 +299,6 @@ export default function Home() {
                 </span>
               </span>
             </a>
-
-            <div className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-stone-500">
-              <Badge variant="outline" className="border-emerald-300 text-emerald-700 bg-emerald-50">
-                No Ads
-              </Badge>
-              <Badge variant="outline" className="border-stone-300 text-stone-600">
-                No Tracking
-              </Badge>
-              <Badge variant="outline" className="border-stone-300 text-stone-600">
-                Free Forever
-              </Badge>
-            </div>
           </div>
         </div>
       </header>
