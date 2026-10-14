@@ -33,13 +33,38 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Webster Free" }],
   icons: {
-    icon: "/logo.svg",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-48.png", type: "image/png", sizes: "48x48" },
+      { url: "/favicon-64.png", type: "image/png", sizes: "64x64" },
+      { url: "/favicon-128.png", type: "image/png", sizes: "128x128" },
+      { url: "/favicon-256.png", type: "image/png", sizes: "256x256" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    shortcut: ["/favicon.ico"],
   },
   openGraph: {
     title: "Webster Free — Ad-Free Dictionary",
     description: "A clean, ad-free Merriam-Webster-style dictionary.",
     siteName: "Webster Free",
     type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Webster Free — Ad-Free Dictionary",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Webster Free — Ad-Free Dictionary",
+    description: "A clean, ad-free Merriam-Webster-style dictionary.",
+    images: ["/og-image.png"],
   },
 };
 
