@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search,
   Volume2,
@@ -197,7 +196,7 @@ export default function Home() {
           throw new Error('Too many requests. Please slow down a bit.')
         }
         if (res.status === 404) {
-          const data = (await res.json().catch(() => ({})) as LookupError)
+          const data = (await res.json().catch(() => ({}))) as LookupError
           setError(data.error || 'Word not found on Wiktionary.')
           setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : null)
           throw new Error(data.error || 'Word not found on Wiktionary.')
@@ -434,101 +433,71 @@ export default function Home() {
           ref={resultRef}
           className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pb-16"
         >
-          <AnimatePresence mode="wait">
-            {loading && (
-              <motion.div
-                key="loading"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-              >
-                <EntrySkeleton query={submittedQuery} />
-              </motion.div>
-            )}
-
-            {!loading && error && (
-              <motion.div
-                key="error"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-              >
-                <Card className="border-amber-300 bg-amber-50">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-3">
-                      <X className="h-5 w-5 text-amber-700 mt-0.5 shrink-0" />
-                      <div className="flex-1">
-                        <p className="font-medium text-amber-900">
-                          Could not look up &ldquo;{submittedQuery}&rdquo;
-                        </p>
-                        <p className="text-sm text-amber-800 mt-1">{error}</p>
-                        {suggestions && suggestions.length > 0 && (
-                          <div className="mt-4">
-                            <p className="text-xs uppercase tracking-wider text-amber-700 font-medium mb-2">
-                              Did you mean one of these?
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {suggestions.map((s) => (
-                                <Button
-                                  key={s}
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setQuery(s)
-                                    doLookup(s)
-                                  }}
-                                  className="rounded-full border-amber-400 bg-white text-amber-800 hover:bg-amber-100"
-                                >
-                                  {s}
-                                </Button>
-                              ))}
-                            </div>
+          {!loading && error && (
+            <div className="page-transition">
+              <Card className="border-amber-300 bg-amber-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-3">
+                    <X className="h-5 w-5 text-amber-700 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <p className="font-medium text-amber-900">
+                        Could not look up &ldquo;{submittedQuery}&rdquo;
+                      </p>
+                      <p className="text-sm text-amber-800 mt-1">{error}</p>
+                      {suggestions && suggestions.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-xs uppercase tracking-wider text-amber-700 font-medium mb-2">
+                            Did you mean one of these?
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {suggestions.map((s) => (
+                              <Button
+                                key={s}
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setQuery(s)
+                                  doLookup(s)
+                                }}
+                                className="rounded-full border-amber-400 bg-white text-amber-800 hover:bg-amber-100"
+                              >
+                                {s}
+                              </Button>
+                            ))}
                           </div>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-4 border-amber-400 text-amber-800 hover:bg-amber-100"
-                          onClick={() => doLookup(submittedQuery)}
-                        >
-                          Try again
-                        </Button>
-                      </div>
+                        </div>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-4 border-amber-400 text-amber-800 hover:bg-amber-100"
+                        onClick={() => doLookup(submittedQuery)}
+                      >
+                        Try again
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
-              </motion.div>
+              </div>
             )}
 
             {!loading && !error && entry && (
-              <motion.div
-                key="entry"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-              >
+              <div className="page-transition">
                 <EntryView
                   entry={entry}
                   isWordOfTheDay={isWod}
                   onSpeak={speak}
                   onPick={doLookup}
                 />
-              </motion.div>
+              </div>
             )}
 
             {!loading && !error && !entry && (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
+              <div className="page-transition">
                 <EmptyState onPick={doLookup} />
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
-        </section>
-      </main>
+          </main>
 
       {/* ===== Footer ===== */}
       <footer className="border-t border-stone-200 bg-white/70 mt-auto">
@@ -654,7 +623,6 @@ function EntryView({
   onPick: (word: string) => void
 }) {
   const displayWord = titleCase(entry.word)
-  // Prefer real MW audio when available; fall back to TTS.
   const playAudio = () => {
     if (entry.audioUrl) {
       try {
@@ -901,7 +869,7 @@ function EntrySkeleton({ query }: { query: string }) {
     <article className="space-y-8">
       <header className="border-b border-stone-200 pb-6">
         <Skeleton className="h-12 w-64" />
-        <div className="mt-3 flex gap-2">
+        <div className="flex gap-2">
           <Skeleton className="h-6 w-20" />
           <Skeleton className="h-6 w-24" />
           <Skeleton className="h-6 w-32" />
@@ -966,3 +934,4 @@ function EmptyState({ onPick }: { onPick: (word: string) => void }) {
     </div>
   )
 }
+
