@@ -26,10 +26,10 @@
   --danger: #f87171;
   --info: #38bdf8;
 
-  /* Typography — Network Standard */
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui;
+  /* Typography — serif display + humanist sans body */
+  --font-display: "Playfair Display", Georgia, ui-serif, serif;
   --font-body: "DM Sans", ui-sans-serif, system-ui;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-mono: ui-monospace, SFMono-Regular, monospace;
 
   /* Motion — Network Standard */
   --ease-glide: cubic-bezier(0.16, 1, 0.3, 1);

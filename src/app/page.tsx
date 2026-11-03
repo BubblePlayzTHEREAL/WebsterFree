@@ -293,7 +293,7 @@ export default function Home() {
                 <span className="font-serif text-xl tracking-tight text-[#1a1a1a]">
                   Lexica
                 </span>
-                <span className="text-[10px] uppercase tracking-[0.18em] text-stone-500">
+                <span className="text-xs uppercase tracking-[0.18em] text-stone-500">
                   Ad-Free Dictionary
                 </span>
               </span>
@@ -327,7 +327,7 @@ export default function Home() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search a word — e.g. serendipity, ephemeral, gregarious…"
-                className="h-14 pl-12 pr-28 text-base sm:text-lg rounded-full border-stone-300 bg-white shadow-sm focus-visible:ring-[#b32500] focus-visible:border-[#b32500]"
+                className="h-14 pl-12 pr-28 text-base sm:text-lg rounded-full border-stone-300 bg-white shadow-sm placeholder:text-stone-500 focus-visible:ring-[#b32500] focus-visible:border-[#b32500]"
                 autoComplete="off"
                 spellCheck={false}
                 autoCapitalize="off"
@@ -348,8 +348,8 @@ export default function Home() {
 
         {/* ===== Word of the Day ===== */}
         <section className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pb-10">
-          <Card className="overflow-hidden border-stone-200 bg-gradient-to-br from-[#fff8f1] to-[#fbfaf7]">
-            <CardHeader className="flex flex-row items-start gap-4 space-y-0 border-b border-stone-200/70 bg-white/60">
+          <Card className="overflow-hidden border-stone-200 bg-[#fdf9f2]">
+            <CardHeader className="flex flex-row items-start gap-4 space-y-0">
               <span className="grid place-items-center h-10 w-10 rounded-md bg-[#b32500] text-white">
                 <Sparkles className="h-5 w-5" />
               </span>
@@ -498,6 +498,7 @@ export default function Home() {
                 <EmptyState onPick={doLookup} />
               </div>
             )}
+        </section>
 
         <div className="border-t border-stone-200 bg-white/70 mt-auto" role="contentinfo">
           <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-stone-500">
@@ -549,7 +550,7 @@ function WodCard({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-        <h3 className="font-serif text-3xl sm:text-4xl text-[#1a1a1a]">{entry.word}</h3>
+        <h2 className="font-serif text-3xl sm:text-4xl text-[#1a1a1a]">{entry.word}</h2>
         {entry.phonetic && (
           <span className="text-stone-500 text-sm">{entry.phonetic}</span>
         )}
@@ -587,12 +588,12 @@ function WodCard({
         )}
       </div>
       {entry.definitions[0] && (
-        <p className="text-stone-700 leading-relaxed">
+        <p className="text-stone-700 leading-relaxed max-w-3xl">
           {entry.definitions[0].definition}
         </p>
       )}
       {entry.didYouKnow && (
-        <div className="rounded-lg bg-[#fff4e6] border border-amber-200 p-4">
+        <div className="rounded-md bg-[#fdf3e3] p-4">
           <p className="text-xs uppercase tracking-wider text-amber-700 font-medium mb-1">
             Did You Know?
           </p>

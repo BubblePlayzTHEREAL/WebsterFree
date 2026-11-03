@@ -640,7 +640,6 @@ const LANG_NAMES: Record<string, string> = {
   da: "Danish",
   sv: "Swedish",
   no: "Norwegian",
-  "non": "Old Norse",
   fi: "Finnish",
   hu: "Hungarian",
   tr: "Turkish",
@@ -1209,7 +1208,8 @@ export async function buildEntryFromWiktionary(
 ): Promise<DictionaryEntry> {
   let audioUrl: string | undefined;
   if (parsed.audioFilenames.length > 0) {
-    audioUrl = await fetchWiktionaryAudioUrl(parsed.audioFilenames[0]);
+    audioUrl =
+      (await fetchWiktionaryAudioUrl(parsed.audioFilenames[0])) ?? undefined;
   }
 
   const entry: DictionaryEntry = {
