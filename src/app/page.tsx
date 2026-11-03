@@ -476,6 +476,7 @@ export default function Home() {
                         Try again
                       </Button>
                     </div>
+                  </div>
                   </CardContent>
                 </Card>
               </div>
@@ -497,25 +498,24 @@ export default function Home() {
                 <EmptyState onPick={doLookup} />
               </div>
             )}
-          </main>
 
-      {/* ===== Footer ===== */}
-      <footer className="border-t border-stone-200 bg-white/70 mt-auto">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-stone-500">
-          <div className="flex items-center gap-2">
-            <span className="grid place-items-center h-7 w-7 rounded-md bg-[#b32500] text-white">
-              <BookOpen className="h-3.5 w-3.5" />
-            </span>
-            <span>
-              <span className="font-serif text-stone-700">Lexica</span> — the
-              ad-free English dictionary.
+        <div className="border-t border-stone-200 bg-white/70 mt-auto" role="contentinfo">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-stone-500">
+            <div className="flex items-center gap-2">
+              <span className="grid place-items-center h-7 w-7 rounded-md bg-[#b32500] text-white">
+                <BookOpen className="h-3.5 w-3.5" />
+              </span>
+              <span>
+                <span className="font-serif text-stone-700">Lexica</span> — the
+                ad-free English dictionary.
+              </span>
+            </div>
+            <span className="text-xs">
+              No ads. No tracking. No popups. Dictionary data © Merriam-Webster Inc. and Wiktionary contributors (CC BY-SA).
             </span>
           </div>
-          <span className="text-xs">
-            No ads. No tracking. No popups. Dictionary data © Merriam-Webster Inc. and Wiktionary contributors (CC BY-SA).
-          </span>
         </div>
-      </footer>
+      </main>
     </div>
   )
 }
