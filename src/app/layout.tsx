@@ -74,6 +74,7 @@ export default function RootLayout({
       <body
         className={`${dmSans.variable} ${playfair.variable} antialiased bg-background text-foreground`}
       >
+        <script defer src="/_vercel/insights/script.js" />
         {children}
         <Toaster />
       </body>
