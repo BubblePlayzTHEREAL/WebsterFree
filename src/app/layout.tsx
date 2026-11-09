@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import PwaBridge from "@/components/PwaBridge";
 
 const dmSans = DM_Sans({
   variable: "--font-body",
@@ -17,6 +18,20 @@ const playfair = Playfair_Display({
 
 export const metadata: Metadata = {
   title: "Lexica — The Ad-Free Dictionary",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Lexica",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  // Next 16 emits only the standard "mobile-web-app-capable"; older iOS also
+  // looks for the legacy Apple spelling, so emit it explicitly.
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+  },
   description:
     "A clean, ad-free English dictionary. Look up definitions, IPA pronunciations, etymology, synonyms, antonyms, and a daily featured word — no ads, no tracking, no clutter.",
   keywords: [
@@ -64,6 +79,12 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#fbfaf7",
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -77,6 +98,7 @@ export default function RootLayout({
         <script defer src="/_vercel/insights/script.js" />
         {children}
         <Toaster />
+        <PwaBridge />
       </body>
     </html>
   );

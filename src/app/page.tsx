@@ -267,7 +267,7 @@ export default function Home() {
   )
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fbfaf7] text-stone-800">
+    <div className="min-h-screen flex flex-col bg-[#fbfaf7] text-stone-800 pb-[env(safe-area-inset-bottom,0px)]">
       {/* ===== Header ===== */}
       <header className="sticky top-0 z-30 backdrop-blur-md bg-[#fbfaf7]/85 border-b border-stone-200/70">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">

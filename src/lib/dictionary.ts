@@ -153,12 +153,52 @@ const MW_AUDIO_BASE = "https://media.merriam-webster.com/audio/prons/en-us/mp3";
 const isObj = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object";
 
+/*
+ * MW curly-brace markup comes in two shapes:
+ *
+ *  1. Paired formatting tags — {it}…{/it}, {sc}…{/sc}, {phrase}…{/phrase},
+ *     {sup}…{/sup}, {dx}…{/dx}, … The markers themselves carry no text, so we
+ *     drop the markers and keep the words they wrap.
+ *
+ *  2. Pipe-form link tags — {a_link|engine}, {d_link|machinery|machineries},
+ *     {dxt|carrier||}, {sx|automobile||}, {et_link|French|french}, … The FIRST
+ *     pipe argument is real, user-visible definition text and must survive.
+ *
+ * The old implementation deleted every {…} block outright, which silently
+ * swallowed the words wrapped or pointed at by these tags — e.g.
+ * "a piece of {d_link|machinery|machinery}" rendered as "a piece of", and
+ * etymologies lost their language names from {et_link|French|french}.
+ *
+ * {bc} is MW's bold colon (the sense separator shown as "… : …" on their
+ * site); it is rendered as ": " and a sense-leading colon is trimmed away.
+ */
 function stripInlineMarkup(s: string): string {
-  return s
-    .replace(/\{(\/?)([a-z_]+)\}/gi, "")
-    .replace(/\{phrase\}|\/\{phrase\}/gi, "")
-    .replace(/\{[^}]+\}/g, "")
+  let out = s.replace(
+    /\{\/?([a-z_]+)((?:\|[^{}]*)*)\}/gi,
+    (_m, name: string, rest: string) => {
+      const tag = name.toLowerCase();
+      if (tag === "bc") return ": "; // bold colon — MW's sense separator
+      if (rest) {
+        // Pipe-form tag: the first argument is the display text. Keep it
+        // for every known link tag, and as the least-lossy default for
+        // unknown ones (an empty first argument falls through and drops
+        // only the marker).
+        const first = rest.slice(1).split("|")[0].trim();
+        if (first) return first;
+      }
+      return ""; // paired tag markers: drop the marker, keep the wrapped text
+    }
+  );
+
+  // A sense-initial {bc} leaves a dangling colon — trim it.
+  out = out.replace(/^\s*:\s*/, "");
+  // Tidy whitespace left behind by removed markup.
+  out = out
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/\(\s*\)/g, "")
     .trim();
+  return out;
 }
 
 function mwAudioSubfolder(audioName: string): string {
@@ -201,25 +241,31 @@ function parseMwHeadword(entry: any): {
 
 function parseMwDt(dt: unknown): { text?: string; example?: string } {
   if (!Array.isArray(dt)) return {};
-  let text: string | undefined;
+  // A dt can carry more than one "text" item (e.g. text broken up by other
+  // elements). Keep them all — joining with a space — instead of letting the
+  // last one overwrite the earlier ones.
+  const texts: string[] = [];
   let example: string | undefined;
   for (const item of dt) {
     if (!Array.isArray(item) || item.length < 2) continue;
     const [tag, val] = item;
     if (tag === "text" && typeof val === "string") {
-      text = stripInlineMarkup(val);
+      const cleaned = stripInlineMarkup(val);
+      if (cleaned) texts.push(cleaned);
     } else if (tag === "vis" && Array.isArray(val)) {
       // Take only the first example sentence so we don't mash several
       // unrelated citations together.
-      const first = (val as any[]).find(
-        (v) => isObj(v) && typeof v.t === "string"
-      );
-      if (first) {
-        example = stripInlineMarkup((first as any).t);
+      if (!example) {
+        const first = (val as any[]).find(
+          (v) => isObj(v) && typeof v.t === "string"
+        );
+        if (first) {
+          example = stripInlineMarkup((first as any).t);
+        }
       }
     }
   }
-  return { text, example };
+  return { text: texts.length ? texts.join(" ") : undefined, example };
 }
 
 function parseMwSenseSequence(sseq: unknown): { definition?: string; example?: string }[] {
@@ -233,9 +279,19 @@ function parseMwSenseSequence(sseq: unknown): { definition?: string; example?: s
       if (type === "sense" && isObj(payload)) {
         const { text, example } = parseMwDt(payload.dt);
         senses.push({ definition: text, example });
+      } else if (type === "uns" && isObj(payload)) {
+        // "uns" (unqualified sense, e.g. in phrasal-verb entries) has the
+        // same shape as "sense" — without this branch its text is dropped.
+        const { text, example } = parseMwDt(payload.dt);
+        senses.push({ definition: text, example });
       } else if (type === "pseq" && isObj(payload)) {
         senses.push(...parseMwSenseSequence(payload.sseq));
       } else if (type === "bs" && isObj(payload)) {
+        // "bs" (binding sense) has its own sense text plus a nested sseq.
+        if (isObj(payload.sense)) {
+          const { text, example } = parseMwDt(payload.sense.dt);
+          senses.push({ definition: text, example });
+        }
         senses.push(...parseMwSenseSequence(payload.sseq));
       }
     }
