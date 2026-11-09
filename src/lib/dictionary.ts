@@ -1,8 +1,26 @@
 export interface Definition {
   definition: string;
+  /**
+   * Styled rendering of the definition (Merriam-Webster source only).
+   * Cross-reference words carry `href` and render as blue italic links,
+   * matching merriam-webster.com. Falls back to `definition` when absent.
+   */
+  segments?: DefSegment[];
   example?: string;
+  exampleSegments?: DefSegment[];
   synonyms?: string[];
   antonyms?: string[];
+}
+
+export interface DefSegment {
+  text: string;
+  /** Cross-reference target word — rendered as a blue Merriam-Webster-style link. */
+  href?: string;
+  italic?: boolean;
+  bold?: boolean;
+  smallCaps?: boolean;
+  sup?: boolean;
+  sub?: boolean;
 }
 
 export interface DictionaryEntry {
@@ -14,6 +32,8 @@ export interface DictionaryEntry {
   synonyms?: string[];
   antonyms?: string[];
   etymology?: string;
+  /** Styled etymology segments (Merriam-Webster source only). */
+  etymologySegments?: DefSegment[];
   origin?: string;
   firstKnownUse?: string;
   rhymes?: string[];
@@ -146,7 +166,11 @@ export function stripMarkdownFences(raw: string): string {
 /* Merriam-Webster adapter (Collegiate Dictionary + Thesaurus API)               */
 /* ============================================================================ */
 
-const MW_DICT_BASE = "https://dictionaryapi.com/api/v3/references/collegiate/json";
+// Overridable for local testing against a recorded MW response (see
+// scripts/mock_mw_server.py); defaults to the real Collegiate endpoint.
+const MW_DICT_BASE =
+  process.env.MW_DICT_BASE ||
+  "https://dictionaryapi.com/api/v3/references/collegiate/json";
 const MW_THES_BASE = "https://dictionaryapi.com/api/v3/references/thesaurus/json";
 const MW_AUDIO_BASE = "https://media.merriam-webster.com/audio/prons/en-us/mp3";
 
@@ -154,51 +178,224 @@ const isObj = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object";
 
 /*
- * MW curly-brace markup comes in two shapes:
+ * MW curly-brace markup, parsed into styled segments.
  *
- *  1. Paired formatting tags — {it}…{/it}, {sc}…{/sc}, {phrase}…{/phrase},
- *     {sup}…{/sup}, {dx}…{/dx}, … The markers themselves carry no text, so we
- *     drop the markers and keep the words they wrap.
+ * Two shapes (per MW's JSON data-model docs, section 2.29):
  *
- *  2. Pipe-form link tags — {a_link|engine}, {d_link|machinery|machineries},
- *     {dxt|carrier||}, {sx|automobile||}, {et_link|French|french}, … The FIRST
- *     pipe argument is real, user-visible definition text and must survive.
+ *  1. Paired formatting tags — {it}…{/it}, {sc}…{/sc}, {dx}…{/dx}, … The
+ *     markers carry no text; we drop them and keep the words they wrap,
+ *     remembering the style ({it} italic, {sc} small caps, …).
  *
- * The old implementation deleted every {…} block outright, which silently
- * swallowed the words wrapped or pointed at by these tags — e.g.
- * "a piece of {d_link|machinery|machinery}" rendered as "a piece of", and
- * etymologies lost their language names from {et_link|French|french}.
+ *  2. Pipe-form cross-reference tags — {a_link|engine}, {d_link|machinery|x},
+ *     {dxt|carrier||}, {sx|automobile||1}, {et_link|French|french}, … Field 2
+ *     is the visible link text (what merriam-webster.com paints blue and
+ *     italic); field 3, when non-empty, is the link target id; field 4 adds
+ *     trailing text like a sense number ("sense 2").
  *
- * {bc} is MW's bold colon (the sense separator shown as "… : …" on their
- * site); it is rendered as ": " and a sense-leading colon is trimmed away.
+ * The parser is a small recursive tokenizer rather than a chain of replaces,
+ * so nothing that wraps or points at real words can be silently dropped.
  */
-function stripInlineMarkup(s: string): string {
-  let out = s.replace(
-    /\{\/?([a-z_]+)((?:\|[^{}]*)*)\}/gi,
-    (_m, name: string, rest: string) => {
-      const tag = name.toLowerCase();
-      if (tag === "bc") return ": "; // bold colon — MW's sense separator
-      if (rest) {
-        // Pipe-form tag: the first argument is the display text. Keep it
-        // for every known link tag, and as the least-lossy default for
-        // unknown ones (an empty first argument falls through and drops
-        // only the marker).
-        const first = rest.slice(1).split("|")[0].trim();
-        if (first) return first;
-      }
-      return ""; // paired tag markers: drop the marker, keep the wrapped text
-    }
-  );
 
-  // A sense-initial {bc} leaves a dangling colon — trim it.
-  out = out.replace(/^\s*:\s*/, "");
-  // Tidy whitespace left behind by removed markup.
-  out = out
+type SegStyle = Pick<DefSegment, "italic" | "bold" | "smallCaps" | "sup" | "sub">;
+
+const XREF_TAGS = new Set([
+  "a_link", "d_link", "i_link", "et_link", "mat", "sx", "dxt", "tagt", "ux", "uxt",
+]);
+
+const PAIRED_STYLES: Record<string, SegStyle> = {
+  it: { italic: true },
+  wi: { italic: true },
+  qword: { italic: true },
+  b: { bold: true },
+  phrase: { bold: true, italic: true },
+  bit: { bold: true, italic: true },
+  sc: { smallCaps: true },
+  itsc: { italic: true, smallCaps: true },
+  parahw: { bold: true, smallCaps: true },
+  sup: { sup: true },
+  inf: { sub: true },
+  rom: {},
+};
+
+/** Tokenize MW markup into segments (untidied — spacing fixed by tidySegments). */
+function mwTokenize(s: string, style: SegStyle, out: DefSegment[]): void {
+  let i = 0;
+  const n = s.length;
+  while (i < n) {
+    const brace = s.indexOf("{", i);
+    if (brace === -1) {
+      out.push({ text: s.slice(i), ...style });
+      break;
+    }
+    if (brace > i) out.push({ text: s.slice(i, brace), ...style });
+
+    // Find the end of this tag, brace-depth aware.
+    let j = brace + 1;
+    let depth = 1;
+    while (j < n && depth > 0) {
+      if (s[j] === "{") depth++;
+      else if (s[j] === "}") {
+        depth--;
+        if (depth === 0) break;
+      }
+      j++;
+    }
+    if (depth !== 0) {
+      // Unterminated tag — emit the rest literally rather than loop.
+      out.push({ text: s.slice(brace), ...style });
+      break;
+    }
+    const tagBody = s.slice(brace + 1, j);
+    i = j + 1;
+
+    if (tagBody.startsWith("/")) continue; // stray close tag — ignore
+    const m = /^([a-zA-Z_]+)([\s\S]*)$/.exec(tagBody);
+    if (!m) continue; // "{}" — nothing to do
+    const name = m[1].toLowerCase();
+    const rest = m[2];
+
+    if (name === "bc") {
+      out.push({ text: ": " }); // bold colon — MW's sense separator
+      continue;
+    }
+    if (name === "ldquo") {
+      out.push({ text: "\u201C", ...style });
+      continue;
+    }
+    if (name === "rdquo") {
+      out.push({ text: "\u201D", ...style });
+      continue;
+    }
+    if (name === "p_br") {
+      out.push({ text: "\n" });
+      continue;
+    }
+
+    if (rest.startsWith("|") && (XREF_TAGS.has(name) || !hasMatchingClose(s, name, i))) {
+      // Pipe-form tag: field 2 is the visible link text, field 3 (if any) the
+      // link target, field 4 trailing text such as a sense number.
+      const args = rest.slice(1).split("|");
+      const display = (args[0] ?? "").trim().replace(/^(\S+):\d+$/, "$1");
+      if (XREF_TAGS.has(name)) {
+        const target = (args[1] ?? "").trim() || (args[0] ?? "").trim();
+        const href = target.split(":")[0].trim();
+        if (display) out.push({ text: display, href, italic: true });
+        // Field 4: sense number / vt-vi info to show after the link text.
+        const sense = (args[2] ?? "").trim();
+        if (sense === "illustration") out.push({ text: " illustration" });
+        else if (sense && sense !== "table")
+          out.push({ text: /^\d/.test(sense) ? ` sense ${sense}` : ` ${sense}` });
+      } else if (display) {
+        // Unknown pipe-form tag — keep the first argument (least lossy).
+        out.push({ text: display, ...style });
+      }
+      continue;
+    }
+
+    // Paired tag: find its matching close and recurse over the content.
+    const close = `{/${name}}`;
+    const closeIdx = s.indexOf(close, i);
+    if (closeIdx === -1) continue; // malformed — drop the marker only
+    const childRaw = s.slice(i, closeIdx);
+    i = closeIdx + close.length;
+
+    if (name === "p_only" || name === "pdxt" || name === "pdx") continue; // print-only
+    if (name === "gloss") {
+      out.push({ text: "[" });
+      mwTokenize(childRaw, {}, out);
+      out.push({ text: "]" });
+      continue;
+    }
+    if (name === "dx" || name === "dx_ety") {
+      // Em-dash before the group — but only when it has introductory text
+      // ("— compare X"; a bare {bc}{dx}{dxt…} renders as ": agent, instrument").
+      if (/^[^{]*\S/.test(childRaw)) out.push({ text: " — " });
+      mwTokenize(childRaw, style, out);
+      continue;
+    }
+    if (name === "dx_def") {
+      out.push({ text: "(" });
+      mwTokenize(childRaw, style, out);
+      out.push({ text: ")" });
+      continue;
+    }
+    if (name === "ma") {
+      out.push({ text: " — more at " });
+      mwTokenize(childRaw, style, out);
+      continue;
+    }
+    const childStyle = PAIRED_STYLES[name];
+    if (childStyle) {
+      mwTokenize(childRaw.trim(), { ...style, ...childStyle }, out);
+      continue;
+    }
+    // Unknown paired tag: drop the markers, keep what they wrapped.
+    mwTokenize(childRaw, style, out);
+  }
+}
+
+function hasMatchingClose(s: string, name: string, from: number): boolean {
+  return s.indexOf(`{/${name}}`, from) !== -1;
+}
+
+/**
+ * Normalize spacing across segment boundaries: no space before ,.;:!?)] ,
+ * none after ( [ , no doubled spaces, and no sense-initial bold colon.
+ */
+function tidySegments(segs: DefSegment[]): DefSegment[] {
+  const out: DefSegment[] = [];
+  for (const seg of segs) {
+    const text = seg.text.replace(/[ \t]{2,}/g, " ");
+    if (text === "") continue;
+    const prev = out.length ? out[out.length - 1] : null;
+    let t = text;
+    if (prev) {
+      if (/\s$/.test(prev.text) && /^\s/.test(t)) prev.text = prev.text.replace(/[ \t]+$/, "");
+      if (/^[,.;:!?)\]]/.test(t)) {
+        t = t.replace(/^[ \t]+/, "");
+        prev.text = prev.text.replace(/[ \t]+$/, "");
+      } else if (/[([]$/.test(prev.text)) {
+        t = t.replace(/^[ \t]+/, "");
+      }
+    } else {
+      t = t.replace(/^\s+/, "").replace(/^:\s*/, "");
+    }
+    if (t === "") continue;
+    out.push({ ...seg, text: t });
+  }
+  while (out.length) {
+    const last = out[out.length - 1].text;
+    if (last.trim() === "") {
+      out.pop();
+      continue;
+    }
+    if (/[ \t]+$/.test(last)) out[out.length - 1].text = last.replace(/[ \t]+$/, "");
+    break;
+  }
+  return out.filter((s) => s.text !== "");
+}
+
+function segmentsToPlainText(segs: DefSegment[]): string {
+  return segs
+    .map((s) => s.text)
+    .join("")
     .replace(/[ \t]{2,}/g, " ")
-    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/[ \t]+([,.;:!?)\]])/g, "$1")
+    .replace(/([(])[ \t]+/g, "$1")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
     .replace(/\(\s*\)/g, "")
     .trim();
-  return out;
+}
+
+/** Parse MW markup into tidied, styled segments. */
+function mwParse(s: string): DefSegment[] {
+  const out: DefSegment[] = [];
+  mwTokenize(s, {}, out);
+  return tidySegments(out);
+}
+
+function stripInlineMarkup(s: string): string {
+  return segmentsToPlainText(mwParse(s));
 }
 
 function mwAudioSubfolder(audioName: string): string {
@@ -239,61 +436,146 @@ function parseMwHeadword(entry: any): {
   return { hw, prs };
 }
 
-function parseMwDt(dt: unknown): { text?: string; example?: string } {
-  if (!Array.isArray(dt)) return {};
-  // A dt can carry more than one "text" item (e.g. text broken up by other
-  // elements). Keep them all — joining with a space — instead of letting the
-  // last one overwrite the earlier ones.
-  const texts: string[] = [];
-  let example: string | undefined;
+interface MwDtParse {
+  /** Raw (untidied) segments of all dt "text" items. */
+  segments: DefSegment[];
+  example?: string;
+  exampleSegments?: DefSegment[];
+}
+
+function parseMwDt(dt: unknown): MwDtParse {
+  const result: MwDtParse = { segments: [] };
+  if (!Array.isArray(dt)) return result;
   for (const item of dt) {
     if (!Array.isArray(item) || item.length < 2) continue;
     const [tag, val] = item;
     if (tag === "text" && typeof val === "string") {
-      const cleaned = stripInlineMarkup(val);
-      if (cleaned) texts.push(cleaned);
+      mwTokenize(val, {}, result.segments);
     } else if (tag === "vis" && Array.isArray(val)) {
       // Take only the first example sentence so we don't mash several
       // unrelated citations together.
-      if (!example) {
-        const first = (val as any[]).find(
+      if (!result.example) {
+        const first = (val as unknown[]).find(
           (v) => isObj(v) && typeof v.t === "string"
         );
         if (first) {
-          example = stripInlineMarkup((first as any).t);
+          const exSegs = mwParse((first as { t: string }).t);
+          result.exampleSegments = exSegs;
+          result.example = segmentsToPlainText(exSegs);
+        }
+      }
+    } else if (tag === "uns" && Array.isArray(val)) {
+      // Usage note — inline, preceded by a space and an em-dash.
+      for (const note of val) {
+        if (Array.isArray(note) && note[0] === "text" && typeof note[1] === "string") {
+          result.segments.push({ text: " — " });
+          mwTokenize(note[1], {}, result.segments);
+        }
+      }
+    } else if (tag === "snote" && Array.isArray(val)) {
+      // Supplemental note — displayed after a newline.
+      for (const note of val) {
+        if (Array.isArray(note) && note[0] === "t" && typeof note[1] === "string") {
+          result.segments.push({ text: "\n" });
+          mwTokenize(note[1], {}, result.segments);
         }
       }
     }
   }
-  return { text: texts.length ? texts.join(" ") : undefined, example };
+  return result;
 }
 
-function parseMwSenseSequence(sseq: unknown): { definition?: string; example?: string }[] {
-  if (!Array.isArray(sseq)) return [];
-  const senses: { definition?: string; example?: string }[] = [];
+interface MwSenseParse {
+  definition?: string;
+  segments?: DefSegment[];
+  example?: string;
+  exampleSegments?: DefSegment[];
+}
+
+/**
+ * Build one flat definition row from a sense payload: subject/status labels
+ * (sls, e.g. "obsolete"), the defining text, and a divided sense (sdsense,
+ * e.g. "also : …") inlined after a semicolon — the way MW's own site shows it.
+ */
+function parseMwSensePayload(payload: Record<string, unknown>): MwSenseParse {
+  const dt = parseMwDt(payload.dt);
+  const segs: DefSegment[] = [];
+
+  if (Array.isArray(payload.sls)) {
+    const labels = (payload.sls as unknown[]).filter(
+      (l): l is string => typeof l === "string" && l.trim().length > 0
+    );
+    labels.forEach((l, idx) => {
+      segs.push({ text: l.trim(), italic: true });
+      if (idx < labels.length - 1) segs.push({ text: ", " });
+    });
+    if (labels.length) {
+      // The label owns the ": " separator now — strip the dt's own leading
+      // whitespace + bold colon so we don't render "obsolete:: ingenuity".
+      segs.push({ text: ": " });
+      let rest = dt.segments.slice();
+      while (rest.length && rest[0].text.trim() === "") rest.shift();
+      if (rest.length && /^\s*:/.test(rest[0].text)) {
+        const t = rest[0].text.replace(/^\s*:\s*/, "");
+        rest = t ? [{ ...rest[0], text: t }, ...rest.slice(1)] : rest.slice(1);
+      }
+      segs.push(...rest);
+    } else {
+      segs.push(...dt.segments);
+    }
+  } else {
+    segs.push(...dt.segments);
+  }
+
+  if (isObj(payload.sdsense)) {
+    const sd = payload.sdsense as Record<string, unknown>;
+    const sdText = typeof sd.sd === "string" ? sd.sd.trim() : "";
+    const sdDt = parseMwDt(sd.dt);
+    if (sdText || sdDt.segments.length) {
+      segs.push({ text: "; " });
+      if (sdText) segs.push({ text: sdText, italic: true }, { text: " " });
+      segs.push(...sdDt.segments);
+    }
+  }
+
+  const tidied = tidySegments(segs);
+  return {
+    definition: segmentsToPlainText(tidied) || undefined,
+    segments: tidied.length ? tidied : undefined,
+    example: dt.example,
+    exampleSegments: dt.exampleSegments,
+  };
+}
+
+function parseMwSenseSequence(sseq: unknown): MwSenseParse[] {
+  const senses: MwSenseParse[] = [];
+  if (!Array.isArray(sseq)) return senses;
   for (const senseGroup of sseq) {
     if (!Array.isArray(senseGroup)) continue;
     for (const inner of senseGroup) {
       if (!Array.isArray(inner) || inner.length < 2) continue;
       const [type, payload] = inner;
-      if (type === "sense" && isObj(payload)) {
-        const { text, example } = parseMwDt(payload.dt);
-        senses.push({ definition: text, example });
-      } else if (type === "uns" && isObj(payload)) {
+      if (!isObj(payload)) continue;
+      if (type === "sense") {
+        const parsed = parseMwSensePayload(payload);
+        if (parsed.definition || parsed.example) senses.push(parsed);
+      } else if (type === "uns") {
         // "uns" (unqualified sense, e.g. in phrasal-verb entries) has the
         // same shape as "sense" — without this branch its text is dropped.
-        const { text, example } = parseMwDt(payload.dt);
-        senses.push({ definition: text, example });
-      } else if (type === "pseq" && isObj(payload)) {
+        const parsed = parseMwSensePayload(payload);
+        if (parsed.definition || parsed.example) senses.push(parsed);
+      } else if (type === "pseq") {
         senses.push(...parseMwSenseSequence(payload.sseq));
-      } else if (type === "bs" && isObj(payload)) {
+      } else if (type === "bs") {
         // "bs" (binding sense) has its own sense text plus a nested sseq.
         if (isObj(payload.sense)) {
-          const { text, example } = parseMwDt(payload.sense.dt);
-          senses.push({ definition: text, example });
+          const parsed = parseMwSensePayload(payload.sense as Record<string, unknown>);
+          if (parsed.definition || parsed.example) senses.push(parsed);
         }
         senses.push(...parseMwSenseSequence(payload.sseq));
       }
+      // "sen" (truncated sense with etymology) carries no dt of its own;
+      // its siblings in the same group hold the defining text.
     }
   }
   return senses;
@@ -412,7 +694,12 @@ export function parseMwEntry(
       const senses = parseMwSenseSequence(d.sseq);
       for (const s of senses) {
         if (s.definition) {
-          definitions.push({ definition: s.definition, example: s.example });
+          definitions.push({
+            definition: s.definition,
+            segments: s.segments,
+            example: s.example,
+            exampleSegments: s.exampleSegments,
+          });
         }
       }
     }
@@ -434,14 +721,19 @@ export function parseMwEntry(
   }
 
   let etymology: string | undefined;
+  let etymologySegments: DefSegment[] | undefined;
   if (Array.isArray(entry.et)) {
-    const parts: string[] = [];
+    const segs: DefSegment[] = [];
     for (const item of entry.et) {
       if (Array.isArray(item) && item.length >= 2 && item[0] === "text" && typeof item[1] === "string") {
-        parts.push(stripInlineMarkup(item[1]));
+        if (segs.length) segs.push({ text: " " });
+        mwTokenize(item[1], {}, segs);
       }
     }
-    if (parts.length) etymology = parts.join(" ");
+    if (segs.length) {
+      etymologySegments = tidySegments(segs);
+      etymology = segmentsToPlainText(etymologySegments);
+    }
   }
 
   const firstKnownUse =
@@ -458,6 +750,7 @@ export function parseMwEntry(
     synonyms,
     antonyms,
     etymology,
+    etymologySegments,
     origin: undefined,
     firstKnownUse,
     audioUrl,

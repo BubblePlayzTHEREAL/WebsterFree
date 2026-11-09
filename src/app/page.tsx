@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import {
   Search,
   Volume2,
@@ -33,9 +33,21 @@ import {
 } from '@/components/ui/tooltip'
 import { useToast } from '@/hooks/use-toast'
 
+interface DefSegment {
+  text: string
+  href?: string
+  italic?: boolean
+  bold?: boolean
+  smallCaps?: boolean
+  sup?: boolean
+  sub?: boolean
+}
+
 interface Definition {
   definition: string
+  segments?: DefSegment[]
   example?: string
+  exampleSegments?: DefSegment[]
   synonyms?: string[]
   antonyms?: string[]
 }
@@ -49,6 +61,7 @@ interface DictionaryEntry {
   synonyms?: string[]
   antonyms?: string[]
   etymology?: string
+  etymologySegments?: DefSegment[]
   origin?: string
   firstKnownUse?: string
   rhymes?: string[]
@@ -85,6 +98,65 @@ function saveRecent(words: string[]) {
 
 function titleCase(s: string) {
   return s.replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+/** One styled run of a definition — italics, small caps, super/subscript. */
+function SegmentRun({ seg }: { seg: DefSegment }) {
+  let content: React.ReactNode = seg.text.split('\n').map((part, i) =>
+    i === 0 ? (
+      part
+    ) : (
+      <Fragment key={i}>
+        <br />
+        {part}
+      </Fragment>
+    )
+  )
+  if (seg.sub) content = <sub>{content}</sub>
+  else if (seg.sup) content = <sup>{content}</sup>
+  if (seg.smallCaps)
+    content = <span style={{ fontVariant: 'small-caps' }}>{content}</span>
+  if (seg.bold) content = <strong className="font-semibold">{content}</strong>
+  if (seg.italic) content = <em>{content}</em>
+  return <>{content}</>
+}
+
+/**
+ * Definition text with Merriam-Webster styling: cross-reference words render
+ * as blue italic links (like merriam-webster.com) that look up the target
+ * word right here in Lexica.
+ */
+function SegmentedText({
+  segments,
+  fallback,
+  onPick,
+}: {
+  segments?: DefSegment[]
+  fallback: string
+  onPick?: (word: string) => void
+}) {
+  if (!segments || segments.length === 0) return <>{fallback}</>
+  return (
+    <>
+      {segments.map((seg, i) =>
+        seg.href ? (
+          <button
+            key={i}
+            type="button"
+            className={`cursor-pointer text-[#1467c8] underline-offset-2 hover:underline focus-visible:underline ${
+              seg.italic ? 'italic' : ''
+            }`}
+            title={`Look up “${seg.text}”`}
+            onClick={() => onPick?.(seg.href!.split(':')[0])}
+          >
+            {seg.text}
+          </button>
+        ) : (
+          <SegmentRun key={i} seg={seg} />
+        )
+      )}
+    </>
+  )
 }
 
 function todayKey() {
@@ -589,7 +661,11 @@ function WodCard({
       </div>
       {entry.definitions[0] && (
         <p className="text-stone-700 leading-relaxed max-w-3xl">
-          {entry.definitions[0].definition}
+          <SegmentedText
+            segments={entry.definitions[0].segments}
+            fallback={entry.definitions[0].definition}
+            onPick={onPick}
+          />
         </p>
       )}
       {entry.didYouKnow && (
@@ -724,10 +800,21 @@ function EntryView({
                 {i + 1}
               </span>
               <div className="flex-1 space-y-2">
-                <p className="text-stone-800 leading-relaxed">{d.definition}</p>
+                <p className="text-stone-800 leading-relaxed">
+                  <SegmentedText
+                    segments={d.segments}
+                    fallback={d.definition}
+                    onPick={onPick}
+                  />
+                </p>
                 {d.example && (
                   <p className="text-stone-600 italic border-l-2 border-stone-200 pl-3 text-sm leading-relaxed">
-                    &ldquo;{d.example}&rdquo;
+                    &ldquo;
+                    <SegmentedText
+                      segments={d.exampleSegments}
+                      fallback={d.example}
+                    />
+                    &rdquo;
                   </p>
                 )}
                 {(d.synonyms?.length || d.antonyms?.length) && (
@@ -766,7 +853,13 @@ function EntryView({
       {entry.etymology && (
         <section>
           <SectionTitle icon={<Network className="h-4 w-4" />} title="Word origin & etymology" />
-          <p className="mt-3 text-stone-700 leading-relaxed">{entry.etymology}</p>
+          <p className="mt-3 text-stone-700 leading-relaxed">
+            <SegmentedText
+              segments={entry.etymologySegments}
+              fallback={entry.etymology}
+              onPick={onPick}
+            />
+          </p>
         </section>
       )}
 
